@@ -11,3 +11,20 @@ Change the Wifi username and password
 const char* ssid = "*****";
 
 const char* password = "*****";
+
+
+These are the files in this repository.
+
+S3LambdaCode.js
+
+The lambda code that goes into the Lambda function that API uses to get the file to S3.
+
+
+UploadToS3.ino
+
+The upload program that will get uploaded onto the ESP32
+
+
+UploadToS3_DeepSleepVersion.ino
+
+A deepsleep version of UploadToS3 which is identical apart from using deep sleep instead of a simple timer and also uses more robust wifi code .
