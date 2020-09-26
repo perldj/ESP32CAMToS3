@@ -90,6 +90,7 @@ void setup()
 
   // camera init
   esp_err_t err = esp_camera_init(&config);
+  sleep(8000);
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
