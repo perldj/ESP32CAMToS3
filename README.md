@@ -3,14 +3,14 @@ Arduino and AWS Lambda Code for pushing images to AWS S3
 
 To use this code, change the Arduino file witn your own AWS S3 Address.
 
-String post_url2 = "https://awswebaddress/prod/" + MAC + "/" + Time; // Location where images are POSTED
+    String post_url2 = "https://awswebaddress/prod/" + MAC + "/" + Time; // Location where images are POSTED
 
 
 Change the Wifi username and password
 
-const char* ssid = "*****";
+    const char* ssid = "*****";
 
-const char* password = "*****";
+    const char* password = "*****";
 
 
 These are the files in this repository.
@@ -28,3 +28,5 @@ The upload program that will get uploaded onto the ESP32
 UploadToS3_DeepSleepVersion.ino
 
 A deep sleep version of UploadToS3 which is identical apart from using deep sleep instead of a simple timer and also uses more robust wifi code .
+
+
