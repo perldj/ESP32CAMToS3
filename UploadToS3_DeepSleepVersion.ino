@@ -10,8 +10,8 @@
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP 600       /* Time ESP32 will go to sleep (in seconds) */
 
-const char* ssid = "bobbyN2";
-const char* password = "brothersJ";
+const char* ssid = "*******";
+const char* password = "*********";
 int capture_interval = 520000; // Microseconds between captures
 
 bool internet_connected = false;
@@ -201,7 +201,7 @@ static esp_err_t take_send_photo()
 //  time_t now;
 //  time(&now);
 //  String asString(timeStringBuff);
-   String post_url2 = "https://q88plycqfe.execute-api.ap-southeast-2.amazonaws.com/qwerty123/" + MAC + "/" + Time; // Location where images are POSTED
+   String post_url2 = "https://changeawsassress/prod/" + MAC + "/" + Time; // Location where images are POSTED
    char post_url3[post_url2.length() + 1];
    post_url2.toCharArray(post_url3, sizeof(post_url3));
   
