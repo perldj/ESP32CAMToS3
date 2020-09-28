@@ -8,10 +8,10 @@
 #include <WiFiUdp.h>
 #define WIFI_TIMEOUT 10000
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP 30        /* Time ESP32 will go to sleep (in seconds) */
+#define TIME_TO_SLEEP 600       /* Time ESP32 will go to sleep (in seconds) */
 
-const char* ssid = "*****";
-const char* password = "*****";
+const char* ssid = "bobbyN2";
+const char* password = "brothersJ";
 int capture_interval = 520000; // Microseconds between captures
 
 bool internet_connected = false;
@@ -55,6 +55,12 @@ void setup()
     delay(1000);
     Serial.println("Establishing connection to WiFi..");
   }
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.println("FAILED");
+    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+     esp_deep_sleep_start();
+
+  }
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -90,9 +96,11 @@ void setup()
 
   // camera init
   esp_err_t err = esp_camera_init(&config);
-  sleep(8000);
+   delay(8000);
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error 0x%x", err);
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+esp_deep_sleep_start();
     return;
   }
   take_send_photo();
@@ -190,8 +198,10 @@ static esp_err_t take_send_photo()
    String MAC = String(WiFi.macAddress());
    Serial.print("Time:" );  Serial.print(Time);
    Serial.print("MAC: ");  Serial.print(MAC);
-   
-   String post_url2 = "https://awsaddresshere/prod/" + MAC + "/" + Time; // Location where images are POSTED
+//  time_t now;
+//  time(&now);
+//  String asString(timeStringBuff);
+   String post_url2 = "https://q88plycqfe.execute-api.ap-southeast-2.amazonaws.com/qwerty123/" + MAC + "/" + Time; // Location where images are POSTED
    char post_url3[post_url2.length() + 1];
    post_url2.toCharArray(post_url3, sizeof(post_url3));
   
@@ -212,6 +222,7 @@ static esp_err_t take_send_photo()
   }
 
   esp_http_client_cleanup(http_client);
+
   esp_camera_fb_return(fb);
 }
 
@@ -219,5 +230,5 @@ static esp_err_t take_send_photo()
 
 void loop()
 {
-
+ 
 }
