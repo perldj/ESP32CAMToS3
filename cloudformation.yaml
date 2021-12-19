@@ -5,6 +5,7 @@ Parameters:
     Description: A prefix used on the AWS resources. A random string derived from the stack ID will be appended.
     Type: String
     Default: esp32tocam
+    AllowedPattern: "[a-z0-9]*"
 
 Resources:
   S3Bucket:
