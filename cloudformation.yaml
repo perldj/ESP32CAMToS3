@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to deploy required resources in AWS.
+Parameters:
+  NamePrefix:
+    Description: A prefix used on the AWS resources. A random string derived from the stack ID will be appended.
+    Type: String
+    Default: esp32tocam
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join [ '-', [ !Ref NamePrefix, !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Join [ '-', [ !Ref NamePrefix, !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      Runtime: nodejs12.x
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Handler: index.handler
+      Environment:
+        Variables:
+          S3BucketName: !Ref S3Bucket
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          var s3 = new AWS.S3();
+          exports.handler = (event, context, callback) => {
+               // console.log("Event is ", event);
+               let s3BucketName = process.env.S3BucketName
+               let encodedImage = event.base64Image;
+               let Folder = event.S3Folder;
+               let Filename = event.Filename;
+               // console.log("Copying event body of ", encodedImage);
+               let decodedImage = Buffer.from(encodedImage, 'base64');
+               var filePath = "images/" + Folder + "/" + Filename + ".jpg";
+               var params = {
+                 "Body": decodedImage,
+                 "Bucket": s3BucketName,
+                 "Key": filePath  
+              };
+              s3.upload(params, function(err, data){
+                 if(err) {
+                     callback(err, null);
+                 } else {
+                     let response = {
+                  "statusCode": 200,
+                  "headers": {
+                      "my_header": "my_value"
+                  },
+                  "body": JSON.stringify(data),
+                  "isBase64Encoded": false
+              };
+                     callback(null, response);
+              }
+              });
+          };
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ '-', [ !Ref NamePrefix, !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+  
+  LambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Join [ '-', [ !Ref NamePrefix, !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      Roles: [ !Ref LambdaExecutionRole ]
+      PolicyDocument: !Sub
+        - '{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:PutObject",
+                        "s3:PutObjectRetention",
+                        "s3:ListBucketVersions",
+                        "s3:ListBucket"
+                    ],
+                    "Resource": [
+                        "arn:aws:s3:::${S3BucketName}",
+                        "arn:aws:s3:::${S3BucketName}/*"
+                    ]
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogGroup"
+                    ],
+                    "Resource": [
+                        "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+                    ]
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": "s3:ListAllMyBuckets",
+                    "Resource": "*"
+                }
+            ]
+          }'
+        - S3BucketName: !Ref S3Bucket
+          LambdaFunctionName: !Ref LambdaFunction
+
+
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join [ '-', [ !Ref NamePrefix, !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      BinaryMediaTypes: [ 'image/jpg' ]
+      EndpointConfiguration:
+        Types: [ 'REGIONAL' ]
+
+  APIFolderResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !GetAtt [ RestAPI, RootResourceId ]
+      PathPart: '{folder}'
+
+  APIEpochResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !Ref APIFolderResource
+      PathPart: '{epoch}'
+
+  APIMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref APIEpochResource
+      AuthorizationType: NONE
+      HttpMethod: POST
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: Empty
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        ContentHandling: CONVERT_TO_TEXT
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseTemplates:
+              application/json : ''
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - LambdaArn: !GetAtt LambdaFunction.Arn
+        RequestTemplates:
+          "image/jpg" : "{
+            \"S3Folder\" : \"$input.params('folder')\",
+            \"Filename\" : \"$input.params('epoch')\",
+            \"base64Image\" : \"$input.body\"
+          }"
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIMethod
+    Properties:
+      RestApiId: !Ref RestAPI
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: prod
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref ApiGatewayDeployment
+
+  LambdaApiGatewayInvoke:
+     Type: AWS::Lambda::Permission
+     Properties:
+       Action: lambda:InvokeFunction
+       FunctionName: !GetAtt LambdaFunction.Arn
+       Principal: apigateway.amazonaws.com
+       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/POST/*/*
+
+Outputs:
+  APIGatewayURL:
+    Description: 'API Gateway URL'
+    Value: !Join [ '', [ 'https://', !Ref RestAPI, '.execute-api.', !Ref 'AWS::Region', '.amazonaws.com/', !Ref ApiGatewayStage, '/' ]]
+  S3Bucket:
+    Description: 'S3 Bucket'
+    Value: !Ref S3Bucket
+  LambdaFunction:
+    Description: 'Lambda function'
+    Value: !Ref LambdaFunction
